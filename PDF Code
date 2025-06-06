@@ -1,0 +1,659 @@
+import PyPDF2
+import tkinter as tk
+from tkinter import ttk, filedialog, messagebox, scrolledtext
+import re
+from typing import List, Dict, Tuple, Set
+
+class AutomataDetector:
+    def __init__(self):
+        # Lista de palabras clave predefinidas
+        self.palabras_clave = {
+            'casa', 'con', 'puertas', 'de', 'cedro', 'caoba', 'ventanas', 'madera',
+            'techo', 'paredes', 'habitaciones', 'cocina', 'baño', 'sala', 'comedor',
+            'jardín', 'garaje', 'escaleras', 'chimenea', 'balcón', 'terraza', 'sótano',
+            'ático', 'puerta', 'entrada', 'salida', 'principal', 'secundaria', 'lateral',
+            'frontal', 'trasera', 'izquierda', 'derecha', 'norte', 'sur', 'este', 'oeste',
+            'actividad', 'sospechosa', 'zona', 'avenida', 'calle', 'número', 'dirección',
+            'ubicación', 'lugar', 'sitio', 'posición', 'coordenadas', 'mapa', 'plano',
+            'edificio', 'construcción', 'estructura', 'inmueble', 'propiedad', 'vivienda',
+            'residencia', 'domicilio', 'hogar', 'refugio', 'escondite', 'búsqueda',
+            'investigación', 'operación', 'misión', 'objetivo', 'meta', 'plan', 'estrategia'
+        }
+        
+        # Estados del autómata
+        self.estados = {}
+        self.estado_actual = 0
+        self.secuencias_encontradas = []
+        self.palabras_encontradas = []
+        
+    def reiniciar_automata(self):
+        """Reinicia el autómata para un nuevo análisis"""
+        self.estado_actual = 0
+        self.secuencias_encontradas = []
+        self.palabras_encontradas = []
+        self.estados = {}
+    
+    def procesar_palabra(self, palabra: str) -> bool:
+        """
+        Procesa una palabra y actualiza el estado del autómata
+        Retorna True si la palabra es una palabra clave
+        """
+        palabra_limpia = self.limpiar_palabra(palabra.lower())
+        
+        if palabra_limpia in self.palabras_clave:
+            self.palabras_encontradas.append(palabra_limpia)
+            
+            # Crear transición de estado
+            estado_anterior = self.estado_actual
+            self.estado_actual += 1
+            
+            # Guardar información del estado
+            self.estados[self.estado_actual] = {
+                'palabra': palabra_limpia,
+                'estado_anterior': estado_anterior,
+                'posicion': len(self.palabras_encontradas)
+            }
+            
+            return True
+        return False
+    
+    def limpiar_palabra(self, palabra: str) -> str:
+        """Limpia la palabra de caracteres especiales y espacios"""
+        return re.sub(r'[^\w\s]', '', palabra).strip().lower()
+    
+    def detectar_secuencias(self, min_longitud: int = 3) -> List[List[str]]:
+        """
+        Detecta secuencias significativas de palabras clave
+        Una secuencia se considera significativa si tiene al menos min_longitud palabras
+        """
+        secuencias = []
+        if len(self.palabras_encontradas) >= min_longitud:
+            # Buscar subsecuencias que puedan formar mensajes
+            for i in range(len(self.palabras_encontradas) - min_longitud + 1):
+                secuencia = self.palabras_encontradas[i:i + min_longitud]
+                if self.es_secuencia_valida(secuencia):
+                    secuencias.append(secuencia)
+        
+        return secuencias
+    
+    def es_secuencia_valida(self, secuencia: List[str]) -> bool:
+        """
+        Determina si una secuencia de palabras puede formar un mensaje válido
+        Basándose en patrones comunes de mensajes ocultos
+        """
+        # Patrones expandidos que indican posibles mensajes ocultos
+        patrones_sospechosos = [
+            # Patrones de actividades sospechosas
+            ['actividad', 'sospechosa'],
+            ['operación', 'en'],
+            ['misión', 'objetivo'],
+            ['investigación', 'en'],
+            ['búsqueda', 'en'],
+            ['plan', 'estrategia'],
+            
+            # Patrones de ubicación
+            ['zona', 'número'],
+            ['avenida', 'número'],
+            ['calle', 'número'],
+            ['ubicación', 'objetivo'],
+            ['dirección', 'coordenadas'],
+            ['lugar', 'sitio'],
+            ['posición', 'norte'],
+            ['posición', 'sur'],
+            ['posición', 'este'],
+            ['posición', 'oeste'],
+            
+            # Patrones de estructuras
+            ['casa', 'con'],
+            ['edificio', 'con'],
+            ['construcción', 'con'],
+            ['inmueble', 'con'],
+            ['vivienda', 'con'],
+            ['residencia', 'con'],
+            ['puertas', 'de'],
+            ['ventanas', 'de'],
+            ['techo', 'de'],
+            ['paredes', 'de'],
+            
+            # Patrones de acceso
+            ['entrada', 'principal'],
+            ['salida', 'trasera'],
+            ['puerta', 'lateral'],
+            ['acceso', 'frontal'],
+            ['escaleras', 'al'],
+            ['chimenea', 'en'],
+            ['balcón', 'en'],
+            ['terraza', 'en'],
+            
+            # Patrones de ocultamiento
+            ['escondite', 'en'],
+            ['refugio', 'en'],
+            ['sótano', 'secreto'],
+            ['ático', 'oculto'],
+            
+            # Patrones temporales/direccionales
+            ['norte', 'sur'],
+            ['este', 'oeste'],
+            ['izquierda', 'derecha'],
+            ['frontal', 'trasera'],
+            ['principal', 'secundaria']
+        ]
+        
+        # Verificar si la secuencia contiene algún patrón sospechoso
+        secuencia_texto = ' '.join(secuencia)
+        for patron in patrones_sospechosos:
+            if all(palabra in secuencia for palabra in patron):
+                return True
+        
+        return len(secuencia) >= 3  # Cualquier secuencia de 3+ palabras es potencialmente válida
+    
+    def generar_mensaje_oculto(self) -> str:
+        """
+        Genera el mensaje oculto basándose en las secuencias encontradas
+        """
+        if not self.palabras_encontradas:
+            return "No se encontraron mensajes ocultos."
+        
+        secuencias = self.detectar_secuencias()
+        mensajes_detectados = []
+        
+        # Analizar diferentes tipos de patrones
+        mensajes_detectados.extend(self._detectar_mensajes_ubicacion())
+        mensajes_detectados.extend(self._detectar_mensajes_actividad())
+        mensajes_detectados.extend(self._detectar_mensajes_estructura())
+        mensajes_detectados.extend(self._detectar_mensajes_acceso())
+        mensajes_detectados.extend(self._detectar_mensajes_direccionales())
+        
+        if not mensajes_detectados:
+            if secuencias:
+                mejor_secuencia = max(secuencias, key=len)
+                return f"Secuencia detectada: {' → '.join(mejor_secuencia)}"
+            else:
+                return f"Palabras clave detectadas: {', '.join(self.palabras_encontradas[:10])}{'...' if len(self.palabras_encontradas) > 10 else ''}"
+        
+        # Retornar todos los mensajes detectados
+        resultado = "MENSAJES OCULTOS DETECTADOS:\n\n"
+        for i, mensaje in enumerate(mensajes_detectados, 1):
+            resultado += f"{i}. {mensaje}\n"
+        
+        return resultado
+    
+    def _detectar_mensajes_ubicacion(self) -> List[str]:
+        """Detecta mensajes relacionados con ubicaciones"""
+        mensajes = []
+        palabras = self.palabras_encontradas
+        
+        # Patrones de ubicación específica
+        if 'actividad' in palabras and 'sospechosa' in palabras:
+            zona_info = self._extraer_info_zona(palabras)
+            if zona_info:
+                mensajes.append(f"Actividad sospechosa detectada en {zona_info}")
+            else:
+                mensajes.append("Actividad sospechosa reportada")
+        
+        if 'zona' in palabras or 'avenida' in palabras or 'calle' in palabras:
+            ubicacion = self._construir_ubicacion(palabras)
+            if ubicacion:
+                mensajes.append(f"Ubicación de interés: {ubicacion}")
+        
+        if 'coordenadas' in palabras or 'mapa' in palabras:
+            mensajes.append("Información de coordenadas o mapas detectada")
+        
+        if 'dirección' in palabras and 'ubicación' in palabras:
+            mensajes.append("Información de dirección específica mencionada")
+            
+        return mensajes
+    
+    def _detectar_mensajes_actividad(self) -> List[str]:
+        """Detecta mensajes relacionados con actividades operacionales"""
+        mensajes = []
+        palabras = self.palabras_encontradas
+        
+        if 'operación' in palabras:
+            contexto = self._extraer_contexto_operacion(palabras)
+            mensajes.append(f"Operación {contexto}")
+        
+        if 'misión' in palabras and 'objetivo' in palabras:
+            mensajes.append("Misión con objetivo específico identificada")
+        
+        if 'investigación' in palabras:
+            mensajes.append("Actividad de investigación en curso")
+        
+        if 'búsqueda' in palabras:
+            objetivo_busqueda = self._extraer_objetivo_busqueda(palabras)
+            mensajes.append(f"Operación de búsqueda {objetivo_busqueda}")
+        
+        if 'plan' in palabras and 'estrategia' in palabras:
+            mensajes.append("Plan estratégico documentado")
+            
+        return mensajes
+    
+    def _detectar_mensajes_estructura(self) -> List[str]:
+        """Detecta mensajes relacionados con estructuras y edificaciones"""
+        mensajes = []
+        palabras = self.palabras_encontradas
+        
+        # Detectar tipo de estructura
+        estructuras = ['casa', 'edificio', 'construcción', 'inmueble', 'vivienda', 'residencia']
+        estructura_encontrada = None
+        for estructura in estructuras:
+            if estructura in palabras:
+                estructura_encontrada = estructura
+                break
+        
+        if estructura_encontrada:
+            detalles = self._extraer_detalles_estructura(palabras)
+            if detalles:
+                mensajes.append(f"{estructura_encontrada.capitalize()} con características: {detalles}")
+            else:
+                mensajes.append(f"{estructura_encontrada.capitalize()} de interés identificada")
+        
+        # Detectar materiales específicos
+        materiales = ['cedro', 'caoba', 'madera']
+        materiales_encontrados = [m for m in materiales if m in palabras]
+        if materiales_encontrados:
+            mensajes.append(f"Estructura con materiales específicos: {', '.join(materiales_encontrados)}")
+        
+        # Detectar espacios específicos
+        espacios = ['sótano', 'ático', 'garaje', 'jardín', 'terraza', 'balcón']
+        espacios_encontrados = [e for e in espacios if e in palabras]
+        if espacios_encontrados:
+            mensajes.append(f"Espacios de interés: {', '.join(espacios_encontrados)}")
+            
+        return mensajes
+    
+    def _detectar_mensajes_acceso(self) -> List[str]:
+        """Detecta mensajes relacionados con puntos de acceso"""
+        mensajes = []
+        palabras = self.palabras_encontradas
+        
+        accesos = ['entrada', 'salida', 'puerta', 'puertas']
+        tipos_acceso = ['principal', 'secundaria', 'lateral', 'frontal', 'trasera']
+        
+        accesos_encontrados = [a for a in accesos if a in palabras]
+        tipos_encontrados = [t for t in tipos_acceso if t in palabras]
+        
+        if accesos_encontrados and tipos_encontrados:
+            mensajes.append(f"Punto de acceso identificado: {accesos_encontrados[0]} {tipos_encontrados[0]}")
+        elif accesos_encontrados:
+            mensajes.append(f"Punto de acceso mencionado: {', '.join(accesos_encontrados)}")
+        
+        if 'escaleras' in palabras:
+            mensajes.append("Acceso vertical mediante escaleras")
+        
+        if 'ventanas' in palabras:
+            mensajes.append("Puntos de acceso alternativos por ventanas")
+            
+        return mensajes
+    
+    def _detectar_mensajes_direccionales(self) -> List[str]:
+        """Detecta mensajes con información direccional"""
+        mensajes = []
+        palabras = self.palabras_encontradas
+        
+        direcciones = ['norte', 'sur', 'este', 'oeste']
+        direcciones_encontradas = [d for d in direcciones if d in palabras]
+        
+        if len(direcciones_encontradas) >= 2:
+            mensajes.append(f"Información direccional específica: {' y '.join(direcciones_encontradas)}")
+        elif direcciones_encontradas:
+            mensajes.append(f"Orientación hacia el {direcciones_encontradas[0]}")
+        
+        lados = ['izquierda', 'derecha']
+        lados_encontrados = [l for l in lados if l in palabras]
+        if lados_encontrados:
+            mensajes.append(f"Posicionamiento lateral: {', '.join(lados_encontrados)}")
+            
+        return mensajes
+    
+    def _extraer_info_zona(self, palabras: List[str]) -> str:
+        """Extrae información específica de zona"""
+        if 'zona' in palabras:
+            idx = palabras.index('zona')
+            # Buscar número o información adicional cerca
+            for i in range(max(0, idx-2), min(len(palabras), idx+3)):
+                if palabras[i].isdigit() or palabras[i] in ['número', 'avenida', 'calle']:
+                    return f"zona {palabras[i]}"
+        return ""
+    
+    def _construir_ubicacion(self, palabras: List[str]) -> str:
+        """Construye información de ubicación"""
+        ubicacion_parts = []
+        
+        if 'avenida' in palabras:
+            ubicacion_parts.append('avenida')
+        if 'calle' in palabras:
+            ubicacion_parts.append('calle')
+        if 'zona' in palabras:
+            ubicacion_parts.append('zona')
+        
+        # Buscar números
+        numeros = [p for p in palabras if p.isdigit()]
+        if numeros:
+            ubicacion_parts.extend(numeros[:2])  # Máximo 2 números
+        
+        return ' '.join(ubicacion_parts) if ubicacion_parts else ""
+    
+    def _extraer_contexto_operacion(self, palabras: List[str]) -> str:
+        """Extrae contexto de la operación"""
+        contextos = []
+        if 'sospechosa' in palabras:
+            contextos.append('sospechosa')
+        if 'búsqueda' in palabras:
+            contextos.append('de búsqueda')
+        if 'investigación' in palabras:
+            contextos.append('de investigación')
+        
+        return ' '.join(contextos) if contextos else 'en curso'
+    
+    def _extraer_objetivo_busqueda(self, palabras: List[str]) -> str:
+        """Extrae información sobre el objetivo de búsqueda"""
+        objetivos = ['objetivo', 'meta', 'escondite', 'refugio']
+        objetivos_encontrados = [o for o in objetivos if o in palabras]
+        
+        if objetivos_encontrados:
+            return f"con {objetivos_encontrados[0]} específico"
+        return "en progreso"
+    
+    def _extraer_detalles_estructura(self, palabras: List[str]) -> str:
+        """Extrae detalles específicos de la estructura"""
+        detalles = []
+        
+        # Elementos estructurales
+        elementos = ['puertas', 'ventanas', 'techo', 'paredes', 'chimenea']
+        elementos_encontrados = [e for e in elementos if e in palabras]
+        if elementos_encontrados:
+            detalles.extend(elementos_encontrados)
+        
+        # Espacios
+        espacios = ['habitaciones', 'cocina', 'baño', 'sala', 'comedor']
+        espacios_encontrados = [e for e in espacios if e in palabras]
+        if espacios_encontrados:
+            detalles.extend(espacios_encontrados)
+        
+        return ', '.join(detalles[:4]) if detalles else ""  # Máximo 4 detalles
+
+class PDFHiddenMessageApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Detector de Mensajes Ocultos en PDF")
+        self.root.geometry("900x700")
+        self.root.configure(bg='#f0f0f0')
+        
+        self.detector = AutomataDetector()
+        self.archivo_pdf = None
+        
+        self.setup_ui()
+    
+    def setup_ui(self):
+        # Título
+        title_frame = tk.Frame(self.root, bg='#f0f0f0')
+        title_frame.pack(pady=10)
+        
+        title_label = tk.Label(
+            title_frame, 
+            text="Detector de Mensajes Ocultos en PDF",
+            font=('Arial', 16, 'bold'),
+            bg='#f0f0f0',
+            fg='#333'
+        )
+        title_label.pack()
+        
+        # Frame para selección de archivo
+        file_frame = tk.Frame(self.root, bg='#f0f0f0')
+        file_frame.pack(pady=10, padx=20, fill='x')
+        
+        self.file_label = tk.Label(
+            file_frame,
+            text="No se ha seleccionado ningún archivo",
+            bg='#f0f0f0',
+            fg='#666',
+            font=('Arial', 10)
+        )
+        self.file_label.pack(side='left', fill='x', expand=True)
+        
+        select_btn = tk.Button(
+            file_frame,
+            text="Seleccionar PDF",
+            command=self.seleccionar_archivo,
+            bg='#4CAF50',
+            fg='white',
+            font=('Arial', 10, 'bold'),
+            cursor='hand2'
+        )
+        select_btn.pack(side='right', padx=(10, 0))
+        
+        # Botón de conversión
+        convert_frame = tk.Frame(self.root, bg='#f0f0f0')
+        convert_frame.pack(pady=20)
+        
+        self.convert_btn = tk.Button(
+            convert_frame,
+            text="Analizar y Detectar Mensajes",
+            command=self.analizar_pdf,
+            bg='#2196F3',
+            fg='white',
+            font=('Arial', 12, 'bold'),
+            cursor='hand2',
+            state='disabled'
+        )
+        self.convert_btn.pack()
+        
+        # Frame principal para resultados
+        results_frame = tk.Frame(self.root, bg='#f0f0f0')
+        results_frame.pack(pady=20, padx=20, fill='both', expand=True)
+        
+        # Panel izquierdo - Palabras clave encontradas
+        left_frame = tk.LabelFrame(
+            results_frame,
+            text="Palabras Clave Encontradas",
+            font=('Arial', 12, 'bold'),
+            fg='#333',
+            bg='#f0f0f0'
+        )
+        left_frame.pack(side='left', fill='both', expand=True, padx=(0, 10))
+        
+        self.keywords_text = scrolledtext.ScrolledText(
+            left_frame,
+            height=15,
+            font=('Courier', 10),
+            bg='#fff',
+            fg='#333',
+            state='disabled'
+        )
+        self.keywords_text.pack(fill='both', expand=True, padx=10, pady=10)
+        
+        # Panel derecho - Mensaje oculto
+        right_frame = tk.LabelFrame(
+            results_frame,
+            text="Mensaje Oculto Detectado",
+            font=('Arial', 12, 'bold'),
+            fg='#333',
+            bg='#f0f0f0'
+        )
+        right_frame.pack(side='right', fill='both', expand=True, padx=(10, 0))
+        
+        self.message_text = scrolledtext.ScrolledText(
+            right_frame,
+            height=15,
+            font=('Arial', 11),
+            bg='#fff',
+            fg='#333',
+            state='disabled'
+        )
+        self.message_text.pack(fill='both', expand=True, padx=10, pady=10)
+        
+        # Barra de estado
+        self.status_var = tk.StringVar()
+        self.status_var.set("Listo para analizar")
+        status_bar = tk.Label(
+            self.root,
+            textvariable=self.status_var,
+            relief='sunken',
+            anchor='w',
+            bg='#e0e0e0',
+            font=('Arial', 9)
+        )
+        status_bar.pack(side='bottom', fill='x')
+    
+    def seleccionar_archivo(self):
+        file_types = [('Archivos PDF', '*.pdf'), ('Todos los archivos', '*.*')]
+        filename = filedialog.askopenfilename(
+            title="Seleccionar archivo PDF",
+            filetypes=file_types
+        )
+        
+        if filename:
+            self.archivo_pdf = filename
+            self.file_label.config(text=f"Archivo: {filename.split('/')[-1]}")
+            self.convert_btn.config(state='normal')
+            self.status_var.set("Archivo seleccionado - Listo para analizar")
+    
+    def extraer_texto_pdf(self, archivo_pdf: str) -> str:
+        """Extrae texto del archivo PDF"""
+        try:
+            texto_completo = ""
+            with open(archivo_pdf, 'rb') as file:
+                pdf_reader = PyPDF2.PdfReader(file)
+                for page in pdf_reader.pages:
+                    texto_completo += page.extract_text() + "\n"
+            return texto_completo
+        except Exception as e:
+            raise Exception(f"Error al leer el PDF: {str(e)}")
+    
+    def analizar_pdf(self):
+        if not self.archivo_pdf:
+            messagebox.showerror("Error", "Por favor selecciona un archivo PDF")
+            return
+        
+        try:
+            self.status_var.set("Analizando PDF...")
+            self.root.update()
+            
+            # Extraer texto del PDF
+            texto = self.extraer_texto_pdf(self.archivo_pdf)
+            
+            # Reiniciar el detector
+            self.detector.reiniciar_automata()
+            
+            # Procesar cada palabra del texto
+            palabras = re.findall(r'\b\w+\b', texto.lower())
+            
+            for palabra in palabras:
+                self.detector.procesar_palabra(palabra)
+            
+            # Mostrar resultados
+            self.mostrar_resultados()
+            
+            self.status_var.set("Análisis completado")
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al analizar el PDF: {str(e)}")
+            self.status_var.set("Error en el análisis")
+    
+    def mostrar_resultados(self):
+        # Limpiar campos
+        self.keywords_text.config(state='normal')
+        self.keywords_text.delete(1.0, tk.END)
+        
+        self.message_text.config(state='normal')
+        self.message_text.delete(1.0, tk.END)
+        
+        # Mostrar palabras clave encontradas con estados del autómata
+        if self.detector.palabras_encontradas:
+            self.keywords_text.insert(tk.END, "Secuencia de Estados del Autómata:\n")
+            self.keywords_text.insert(tk.END, "=" * 40 + "\n\n")
+            
+            # Mostrar transiciones de estado
+            self.keywords_text.insert(tk.END, f"q0 (inicio) → \"inicio\"\n\n")
+            
+            for i, palabra in enumerate(self.detector.palabras_encontradas, 1):
+                self.keywords_text.insert(tk.END, f"q{i} → \"{palabra}\"\n")
+            
+            if len(self.detector.palabras_encontradas) >= 3:
+                estado_final = len(self.detector.palabras_encontradas)
+                self.keywords_text.insert(tk.END, f"\nq{estado_final} (aceptación) → \"mensaje detectado\"\n")
+            
+            self.keywords_text.insert(tk.END, f"\n\nTotal de palabras clave: {len(self.detector.palabras_encontradas)}\n")
+            self.keywords_text.insert(tk.END, f"Estados transitados: {len(self.detector.palabras_encontradas) + 1}")
+        else:
+            self.keywords_text.insert(tk.END, "No se encontraron palabras clave en el documento.")
+        
+        # Mostrar mensaje oculto
+        mensaje = self.detector.generar_mensaje_oculto()
+        self.message_text.insert(tk.END, "ANÁLISIS DE MENSAJES OCULTOS:\n")
+        self.message_text.insert(tk.END, "=" * 35 + "\n\n")
+        self.message_text.insert(tk.END, mensaje)
+        
+        if self.detector.palabras_encontradas:
+            # Mostrar estadísticas adicionales
+            self.message_text.insert(tk.END, f"\n\n" + "="*35 + "\n")
+            self.message_text.insert(tk.END, "ESTADÍSTICAS DEL ANÁLISIS:\n")
+            self.message_text.insert(tk.END, f"• Total palabras clave: {len(self.detector.palabras_encontradas)}\n")
+            self.message_text.insert(tk.END, f"• Estados del autómata: {len(self.detector.palabras_encontradas) + 1}\n")
+            
+            secuencias = self.detector.detectar_secuencias()
+            self.message_text.insert(tk.END, f"• Secuencias válidas: {len(secuencias)}\n")
+            
+            # Mostrar análisis de patrones
+            categorias = self._analizar_categorias_palabras()
+            if categorias:
+                self.message_text.insert(tk.END, f"\nCATEGORÍAS DETECTADAS:\n")
+                for categoria, count in categorias.items():
+                    self.message_text.insert(tk.END, f"• {categoria}: {count} palabras\n")
+        
+        # Deshabilitar edición
+        self.keywords_text.config(state='disabled')
+        self.message_text.config(state='disabled')
+    
+    def _analizar_categorias_palabras(self) -> dict:
+        """Analiza las categorías de palabras encontradas"""
+        categorias = {
+            'Estructuras': 0,
+            'Ubicaciones': 0,
+            'Actividades': 0,
+            'Accesos': 0,
+            'Direcciones': 0,
+            'Materiales': 0
+        }
+        
+        palabras = self.detector.palabras_encontradas
+        
+        # Estructuras
+        estructuras = ['casa', 'edificio', 'construcción', 'inmueble', 'vivienda', 'residencia', 
+                      'habitaciones', 'cocina', 'baño', 'sala', 'comedor', 'techo', 'paredes']
+        categorias['Estructuras'] = sum(1 for p in palabras if p in estructuras)
+        
+        # Ubicaciones
+        ubicaciones = ['zona', 'avenida', 'calle', 'dirección', 'ubicación', 'lugar', 'sitio', 
+                      'posición', 'coordenadas', 'mapa', 'plano']
+        categorias['Ubicaciones'] = sum(1 for p in palabras if p in ubicaciones)
+        
+        # Actividades
+        actividades = ['actividad', 'sospechosa', 'operación', 'misión', 'objetivo', 'meta', 
+                      'plan', 'estrategia', 'búsqueda', 'investigación']
+        categorias['Actividades'] = sum(1 for p in palabras if p in actividades)
+        
+        # Accesos
+        accesos = ['puerta', 'puertas', 'entrada', 'salida', 'ventanas', 'escaleras', 'chimenea', 
+                  'balcón', 'terraza', 'principal', 'secundaria', 'lateral']
+        categorias['Accesos'] = sum(1 for p in palabras if p in accesos)
+        
+        # Direcciones
+        direcciones = ['norte', 'sur', 'este', 'oeste', 'izquierda', 'derecha', 'frontal', 'trasera']
+        categorias['Direcciones'] = sum(1 for p in palabras if p in direcciones)
+        
+        # Materiales
+        materiales = ['cedro', 'caoba', 'madera']
+        categorias['Materiales'] = sum(1 for p in palabras if p in materiales)
+        
+        # Filtrar categorías con 0 elementos
+        return {k: v for k, v in categorias.items() if v > 0}
+
+def main():
+    root = tk.Tk()
+    app = PDFHiddenMessageApp(root)
+    root.mainloop()
+
+if __name__ == "__main__":
+    main()
